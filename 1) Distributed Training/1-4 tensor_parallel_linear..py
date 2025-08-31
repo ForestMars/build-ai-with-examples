@@ -20,6 +20,11 @@ class TensorParallelLinear(nn.Module):
             local_out_features = out_features // world_size
             self.weight = nn.Parameter(torch.randn(in_features, local_out_features))
             self.bias = nn.Parameter(torch.zeros(local_out_features)) if bias else None
+            
+            # Register gradient hook for weight synchronization
+            self.weight.register_hook(self._all_reduce_grad_hook)
+            if self.bias is not None:
+                self.bias.register_hook(self._all_reduce_grad_hook)
         
         # Row parallelism (sharding the input features)
         else:
@@ -27,6 +32,16 @@ class TensorParallelLinear(nn.Module):
             local_in_features = in_features // world_size
             self.weight = nn.Parameter(torch.randn(local_in_features, out_features))
             self.bias = nn.Parameter(torch.zeros(out_features)) if bias else None
+            
+            # Register gradient hook for weight synchronization
+            self.weight.register_hook(self._all_reduce_grad_hook)
+            if self.bias is not None:
+                self.bias.register_hook(self._all_reduce_grad_hook)
+    
+    def _all_reduce_grad_hook(self, grad):
+        """Hook to synchronize gradients across all GPUs."""
+        dist.all_reduce(grad, op=dist.ReduceOp.SUM)
+        return grad / self.world_size  # Average the gradients
         
     def forward(self, x):
         if self.dim == 1:  # Column Parallelism
@@ -34,12 +49,12 @@ class TensorParallelLinear(nn.Module):
             # The input x is replicated across all GPUs.
             local_output = torch.matmul(x, self.weight)
             
+            # Add bias before gather (bias is already sharded correctly)
+            if self.bias_enabled:
+                local_output += self.bias
+            
             # all_gather operation ensures output is avail on all ranks.
             output = self.gather_op(local_output)
-            
-            # Explicitly handle the bias since it's also sharded.
-            if self.bias_enabled:
-                output += self.bias_op(self.bias)
             
         else:  # Row Parallelism
             # The input x is already split across GPUs.
@@ -57,13 +72,10 @@ class TensorParallelLinear(nn.Module):
     
     # Helper functions to abstract the distributed operations
     def gather_op(self, output):
-        output_list = 
-            [torch.zeros_like(x) for _ in range(self.world_size)]
+        output_list = [torch.zeros_like(output) for _ in range(self.world_size)]
         dist.all_gather(output_list, output)
-
         return torch.cat(output_list, dim=-1)
 
     def reduce_op(self, output):
         dist.all_reduce(output, op=dist.ReduceOp.SUM)
-
         return output
