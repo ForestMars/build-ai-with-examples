@@ -41,7 +41,8 @@ class TensorParallelLinear(nn.Module):
     def _all_reduce_grad_hook(self, grad):
         """Hook to synchronize gradients across all GPUs."""
         dist.all_reduce(grad, op=dist.ReduceOp.SUM)
-        return grad / self.world_size  # Average the gradients
+        grad.data.div_(self.world_size)  # Average the gradients in-place
+        return grad
         
     def forward(self, x):
         if self.dim == 1:  # Column Parallelism
