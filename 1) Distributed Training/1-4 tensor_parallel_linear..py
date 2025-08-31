@@ -34,19 +34,19 @@ class TensorParallelLinear(nn.Module):
             # The input x is replicated across all GPUs.
             local_output = torch.matmul(x, self.weight)
             
-            # The all_gather operation ensures that the complete output is available on all ranks.
+            # all_gather operation ensures output is avail on all ranks.
             output = self.gather_op(local_output)
             
-            # We must explicitly handle the bias since it's also sharded.
+            # Explicitly handle the bias since it's also sharded.
             if self.bias_enabled:
                 output += self.bias_op(self.bias)
             
         else:  # Row Parallelism
             # The input x is already split across GPUs.
-            # No need for manual slicing. Each GPU receives a local slice.
+            # No manual slicing. Each GPU receives a local slice.
             local_output = torch.matmul(x, self.weight)
             
-            # The all_reduce operation sums the partial results from each GPU.
+            # all_reduce operation sums partial results from each GPU.
             output = self.reduce_op(local_output)
             
             if self.bias_enabled:
@@ -56,11 +56,14 @@ class TensorParallelLinear(nn.Module):
         return output
     
     # Helper functions to abstract the distributed operations
-    def gather_op(self, x):
-        output_list = [torch.zeros_like(x) for _ in range(self.world_size)]
-        dist.all_gather(output_list, x)
+    def gather_op(self, output):
+        output_list = 
+            [torch.zeros_like(x) for _ in range(self.world_size)]
+        dist.all_gather(output_list, output)
+
         return torch.cat(output_list, dim=-1)
 
-    def reduce_op(self, x):
-        dist.all_reduce(x, op=dist.ReduceOp.SUM)
-        return x
+    def reduce_op(self, output):
+        dist.all_reduce(output, op=dist.ReduceOp.SUM)
+
+        return output
