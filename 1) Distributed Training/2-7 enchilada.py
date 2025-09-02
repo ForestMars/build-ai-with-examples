@@ -28,6 +28,11 @@ class ProductionPipelineStage:
         
         # Communication optimizations
         self.comm = OptimizedP2PCommunication(self.rank, dist.get_world_size())
+
+        # TODO: Define expected tensor shapes for communication buffers
+        #       (From model config or by tracing layer outputs) 
+        self.expected_input_shape = self._get_input_shape()
+        self.expected_output_shape = self._get_output_shape()
         
         # Memory optimizations
         self.activation_checkpointer = ActivationCheckpointing(
@@ -54,6 +59,8 @@ class ProductionPipelineStage:
                 tag=micro_batch_id
             )
             self.comm.wait_recv(micro_batch_id)
+            #  This is a common pattern but can be inefficient as clone creates an extra mem alloc 
+            #  Better would be to use recv_buffer directly since it's already on local gpu
             input_tensor = recv_buffer.clone()
             self.communication_times.append(time.perf_counter() - comm_start)
             
