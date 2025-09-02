@@ -99,5 +99,3 @@ class PipeDreamStage:
         dist.recv(tensor, src=next_rank, tag=micro_batch_id + 10000)
 
         return tensor
-
-"""""""
