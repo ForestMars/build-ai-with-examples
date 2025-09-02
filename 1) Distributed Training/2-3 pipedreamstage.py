@@ -99,3 +99,5 @@ class PipeDreamStage:
         dist.recv(tensor, src=next_rank, tag=micro_batch_id + 10000)
 
         return tensor
+
+"""This simplified PipeDreamStage code provides a high-level conceptual view of how interleaved forward and backward passes work. However, in a production environment, this approach has more hidden complexity than a smile in a Dostoyevsky novel. The async keywords are a hint at the real challenge: coordinating these concurrent tasks and managing weight versions without leading to deadlocks or incorrect gradients. While torch.distributed.isend and irecv provide non-blocking communication, using them directly in a naive way still requires manual management of the requests and handles, leading to complex race conditions and deadlocks. You can't simply await them in a standard Python asyncio loop. The solution lies in a more robust scheduling and communication framework that handles these details for us, which we will explore next.""""
