@@ -1,0 +1,1 @@
+Pipeline Efficiency = (num_micro_batches) / (num_micro_batches + num_stages - 1)
